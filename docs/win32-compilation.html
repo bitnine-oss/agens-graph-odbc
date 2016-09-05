@@ -1,0 +1,170 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<html>
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=US-ASCII">
+    <title>Compiling psqlODBC on Windows</title>
+  </head>
+
+  <body bgcolor="#ffffff" text="#000000" link="#ff0000" vlink="#a00000" alink="#0000ff">
+
+<h1>Compiling psqlODBC on Windows</h1>
+
+<p>
+This page describes how to build the PostgreSQL ODBC Driver on Windows. There
+are three methods to build: from command line using nmake makefiles, from
+command line using MSBuild files, and from Visual Studio IDE.
+</p>
+
+<p>
+The following 3rd party software are required for the build:
+
+<ul>
+<li> Microsoft Windows SDK 7.0 (or later), or Microsoft Visual Studio C++ 2005
+     Edition (or later). Other compilers may work but have not been tested.
+     Download the latest version from <a href="http://www.microsoft.com/downloads/">Microsoft's download page</a>
+</li>
+<li> PostgreSQL Client library (libpq.dll) and headers. Download the latest
+     version from the <a href="http://www.postgresql.org/download/windows/">
+     PostgreSQL downloads page</a>. If you download the graphical installer,
+     it is not necessary to install the server. You can pass
+     "--extract-only yes" option to the installer to just extract the files
+     without setting up the server.
+</li>
+<li> OpenSSL library and header files. Download the latest version from the
+     <a href="https://www.openssl.org/related/binaries.html">OpenSSL website</a>.
+</li>
+<li> WiX Toolset. Required for building the installer. Download the latest
+     version from the <a href="http://wixtoolset.org/">WiX Toolset website</a>
+</ul>
+</p>
+
+<p>
+For the MSBuild method, you will also need PowerShell.
+</p>
+
+<h2>Building with nmake.exe</h2>
+
+Use NMAKE.exe to build the driver for the currently active target:<br><br>
+
+    <code>C:\psqlodbc\&gt; nmake /f win64.mak &lt;options&gt;</code><br><br>
+
+<p>
+Despite the name, win64.mak is used to build both 32-bit and 64-bit binaries.
+With the Microsoft Windows SDK Command Prompt, you can switch between 32-bit
+and 64-bit target architectures with <tt>setenv /x86</tt> and <tt>setenv
+/x64</tt> commands. If using a Visual Studio Command Prompt you can start the
+x86 or x64 versions from the Start menu, or run <tt>vcvarsall.bat</tt> with
+appropriate options to switch architectures.
+</p>
+
+<p>
+To build the .msi installer file:<br><br>
+
+    <code>C:\psqlodbc\&gt; nmake /f win64.mak installer</code><br><br>
+
+The resulting installer file goes to installer/x64 or installer/x86 directory.
+</p>
+
+<p>
+To build both 32-bit and 64-bit versions in one command:<br><br>
+
+    <code>C:\psqlodbc\&gt; nmake /f win64.mak world</code><br><br>
+</p>
+
+
+<p>
+The following build options may be used, either on the command line, or
+by creating a file called "windows-local.mak".
+</p>
+
+
+<p>
+<table cellspacing="0" cellpadding="3" width="780" border=1>
+
+  <tr>
+    <td>Variable</td>
+    <td>Values</td>
+    </tr>
+  <tr>
+    <td>CFG</td>
+    <td>Release(default), or Debug</td>
+    </tr>
+  <tr>
+    <td>PG_INC</td>
+    <td>$(PROGRAMFILES)\PostgreSQL\9.3\include</td>
+    </tr>
+  <tr>
+    <td>PG_LIB</td>
+    <td>$(PROGRAMFILES)\PostgreSQL\9.3\lib</td>
+    </tr>
+  <tr>
+    <td>SSL_INC</td>
+    <td>C:\OpenSSL-Win32\include</td>
+    </tr>
+  <tr>
+   <td>SSL_LIB</td>
+   <td>C:\OpenSSL-Win32\lib</td>
+    </tr>
+  <tr>
+    <td>ANSI_VERSION</td>
+    <td>no (If set to "yes", output dll name to psqlodbc30a.dll)</td>
+  </tr>
+  <tr>
+    <td>MSDTC</td>
+    <td>yes</td>
+  </tr>
+  </table></p>
+
+<ol>
+<li>UNICODE is the default (psqlodbc35w.dll), unless ANSI_VERSION is selected (psqlodbc30a.dll)</li>
+<li>libpq.dll is mandatory.</li>
+<li>If MSDTC == Yes, "pgxalib.dll" is created.</li>
+<li>If MSDTC is enabled, ANSI_VERSION also creates "pgenlista.dll", or UNICODE creates "pgenlist.dll".</li>
+</ol>
+
+<h2>Building with MSBuild</h2>
+
+See winbuild/readme.txt in the source directory for details.
+
+<h2>IDE Method</h2>
+
+<p>A Microsoft Visual Studio project file (and workspace) is included in the source tree.
+</p>
+
+<p><strong>psqlodbc.dsp</strong>
+ can be used with Microsoft Visual C++ 6.0.
+</p>
+
+<p><strong>psqlodbc.proj</strong> and
+<strong>psqlodbc.sln</strong>
+can be used with Microsoft Visual C++ 2005 Edition (including the Express edition which can be downloaded free of charge from <a href="http://msdn.microsoft.com/vstudio/express/visualc/usingpsdk/default.aspx">http://msdn.microsoft.com/vstudio/express/visualc/usingpsdk/default.aspx</a>)
+</p>
+
+<p>
+     Preparation before the build:
+</p>
+<ol>
+  <li>The Windows distribution of PostgreSQL will install the required headers and libraries into C:\Program Files\PostgreSQL\9.2
+  <li>OpenSSL should be installed into C:\OpenSSL (OpenSSL binaries can be downloaded from <a href="http://www.slproweb.com/products/Win32OpenSSL.html">http://www.slproweb.com/products/Win32OpenSSL.html</a>)
+</li></ol>
+
+<p>
+       If you want to change the installation arrangement, it
+is necessary to edit the project settings.
+</p>
+
+<p>
+        Note:
+</p>
+
+<p>
+The default build settings will create the following driver:
+</p>
+
+<ol>
+<li>UNICODE support.
+<li>libpq is mandatory.
+<li>The driver filename is "psqlodbc35w.dll".</li></ol>
+
+</body>
+</html>
