@@ -5025,6 +5025,7 @@ convert_escape(QueryParse *qp, QueryBuild *qb)
 
 	QueryBuild	nqb;
 	BOOL	nqb_is_valid = FALSE;
+	int property_pos;
 
 	if (F_OldChar(qp) == ODBC_ESCAPE_START) /* skip the first { */
 		F_OldNext(qp);
@@ -5032,34 +5033,7 @@ convert_escape(QueryParse *qp, QueryBuild *qb)
 	while ((ucv = F_OldChar(qp)) != '\0' && isspace(ucv))
 		F_OldNext(qp);
 
-	/* json */
-	if (F_OldChar(qp) == '\'')
-	{
-		CVT_APPEND_STR(qb, "{");
-		QB_initialize_copy(&nqb, qb, 1024);
-		nqb_is_valid = TRUE;
-		if (retval = process_json(qp, &nqb), retval == SQL_ERROR)
-		{
-			qb->errornumber = nqb.errornumber;
-			qb->errormsg = nqb.errormsg;
-		}
-		else
-		{
-			CVT_APPEND_DATA(qb, nqb.query_statement, F_NewPos(&nqb));
-			CVT_APPEND_STR(qb, "}");
-			if (0 == qb->errornumber)
-			{
-				qb->errornumber = nqb.errornumber;
-				qb->errormsg = nqb.errormsg;
-			}
-			if (SQL_ERROR != retval)
-			{
-				qb->param_number = nqb.param_number;
-				qb->flags = nqb.flags;
-			}
-		}
-		goto cleanup;
-	}
+	property_pos = F_OldPos(qp);
 
 	/*
 	 * procedure calls
@@ -5067,53 +5041,30 @@ convert_escape(QueryParse *qp, QueryBuild *qb)
 	/* '?=' to accept return values exists ? */
 	if (F_OldChar(qp) == '?')
 	{
-		int qpos = F_OldPos(qp);
-
 		while (isspace((UCHAR) qp->statement[++qp->opos]));
 
 		if (F_OldChar(qp) == ':') 
 		{
-			qb->proc_return = 0;
+			if (0 == F_NewPos(qb))
+			{
+				qb->proc_return = 0;
+				if (qb->stmt)
+					qb->stmt->proc_return = 0;
+			}
+		}
+		else {
+			qb->param_number++;
+			qb->proc_return = 1;
 			if (qb->stmt)
-				qb->stmt->proc_return = 0;
-			F_OldPos(qp) = qpos;
-			CVT_APPEND_STR(qb, "{");
-			QB_initialize_copy(&nqb, qb, 1024);
-			nqb_is_valid = TRUE;
-			if (retval = process_json(qp, &nqb), retval == SQL_ERROR)
-			{
-				qb->errornumber = nqb.errornumber;
-				qb->errormsg = nqb.errormsg;
-			}
-			else
-			{
-				CVT_APPEND_DATA(qb, nqb.query_statement, F_NewPos(&nqb));
-				CVT_APPEND_STR(qb, "}");
-				if (0 == qb->errornumber)
-				{
-					qb->errornumber = nqb.errornumber;
-					qb->errormsg = nqb.errormsg;
-				}
-				if (SQL_ERROR != retval)
-				{
-					qb->param_number = nqb.param_number;
-					qb->flags = nqb.flags;
-				}
-			}
-			goto cleanup;
-		}
+				qb->stmt->proc_return = 1;
 
-		qb->param_number++;
-		qb->proc_return = 1;
-		if (qb->stmt)
-			qb->stmt->proc_return = 1;
-
-		if (F_OldChar(qp) != '=')
-		{
-			F_OldPrior(qp);
-			return SQL_SUCCESS;
+			if (F_OldChar(qp) != '=')
+			{
+				F_OldPrior(qp);
+				return SQL_SUCCESS;
+			}
+			while (isspace((UCHAR) qp->statement[++qp->opos]));
 		}
-		while (isspace((UCHAR) qp->statement[++qp->opos]));
 	}
 
 	sscanf(F_OldPtr(qp), "%32s", key);
@@ -5389,8 +5340,31 @@ mylog("%d-%d num=%s SQL_BIT=%d\n", to, from, num, SQL_BIT);
 	}
 	else
 	{
-		/* Bogus key, leave untranslated */
-		retval = SQL_ERROR;
+		F_OldPos(qp) = property_pos;
+		/* may be cypher property syntax */
+		CVT_APPEND_STR(qb, "{");
+		QB_initialize_copy(&nqb, qb, 1024);
+		nqb_is_valid = TRUE;
+		if (retval = process_json(qp, &nqb), retval == SQL_ERROR)
+		{
+			qb->errornumber = nqb.errornumber;
+			qb->errormsg = nqb.errormsg;
+		}
+		else
+		{
+			CVT_APPEND_DATA(qb, nqb.query_statement, F_NewPos(&nqb));
+			CVT_APPEND_STR(qb, "}");
+			if (0 == qb->errornumber)
+			{
+				qb->errornumber = nqb.errornumber;
+				qb->errormsg = nqb.errormsg;
+			}
+			if (SQL_ERROR != retval)
+			{
+				qb->param_number = nqb.param_number;
+				qb->flags = nqb.flags;
+			}
+		}
 	}
 
 cleanup:
