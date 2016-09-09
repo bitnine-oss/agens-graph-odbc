@@ -25,3 +25,5 @@ stamp-*
 *.o
 agodbca.la
 agodbcw.la
+tags
+cscope*
