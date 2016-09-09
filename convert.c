@@ -4966,6 +4966,50 @@ processParameters(QueryParse *qp, QueryBuild *qb,
 	return SQL_SUCCESS;
 }
 
+static int
+process_json(QueryParse *qp, QueryBuild *qb)
+{
+	RETCODE retval = SQL_SUCCESS;
+	int level = 0;
+	BOOL stop = FALSE;
+
+	level = 1;
+	stop = FALSE;
+	for (; F_OldPos(qp) < qp->stmt_len; F_OldNext(qp))
+	{
+		retval = inner_process_tokens(qp, qb);
+		if (retval == SQL_ERROR)
+			return SQL_ERROR;
+		if (ENCODE_STATUS(qp->encstr) != 0)
+			continue;
+		if (qp->in_identifier || qp->in_literal || qp->in_escape)
+			continue;
+
+		switch (F_OldChar(qp))
+		{
+			case ODBC_ESCAPE_START:
+				level++;
+				break;
+
+			case ODBC_ESCAPE_END:
+				level--;
+				stop = (0 == level);
+				break;
+
+			default:
+				break;
+
+		}
+		if (stop) /* returns with the last } position */
+			break;
+	}
+
+	if (FALSE == stop)
+		return SQL_ERROR;
+
+	return retval;
+}
+
 /*
  * convert_escape()
  * This function doesn't return a pointer to static memory any longer !
@@ -4987,17 +5031,83 @@ convert_escape(QueryParse *qp, QueryBuild *qb)
 	/* Separate off the key, skipping leading and trailing whitespace */
 	while ((ucv = F_OldChar(qp)) != '\0' && isspace(ucv))
 		F_OldNext(qp);
+
+	/* json */
+	if (F_OldChar(qp) == '\'')
+	{
+		CVT_APPEND_STR(qb, "{");
+		QB_initialize_copy(&nqb, qb, 1024);
+		nqb_is_valid = TRUE;
+		if (retval = process_json(qp, &nqb), retval == SQL_ERROR)
+		{
+			qb->errornumber = nqb.errornumber;
+			qb->errormsg = nqb.errormsg;
+		}
+		else
+		{
+			CVT_APPEND_DATA(qb, nqb.query_statement, F_NewPos(&nqb));
+			CVT_APPEND_STR(qb, "}");
+			if (0 == qb->errornumber)
+			{
+				qb->errornumber = nqb.errornumber;
+				qb->errormsg = nqb.errormsg;
+			}
+			if (SQL_ERROR != retval)
+			{
+				qb->param_number = nqb.param_number;
+				qb->flags = nqb.flags;
+			}
+		}
+		goto cleanup;
+	}
+
 	/*
 	 * procedure calls
 	 */
 	/* '?=' to accept return values exists ? */
 	if (F_OldChar(qp) == '?')
 	{
+		int qpos = F_OldPos(qp);
+
+		while (isspace((UCHAR) qp->statement[++qp->opos]));
+
+		if (F_OldChar(qp) == ':') 
+		{
+			qb->proc_return = 0;
+			if (qb->stmt)
+				qb->stmt->proc_return = 0;
+			F_OldPos(qp) = qpos;
+			CVT_APPEND_STR(qb, "{");
+			QB_initialize_copy(&nqb, qb, 1024);
+			nqb_is_valid = TRUE;
+			if (retval = process_json(qp, &nqb), retval == SQL_ERROR)
+			{
+				qb->errornumber = nqb.errornumber;
+				qb->errormsg = nqb.errormsg;
+			}
+			else
+			{
+				CVT_APPEND_DATA(qb, nqb.query_statement, F_NewPos(&nqb));
+				CVT_APPEND_STR(qb, "}");
+				if (0 == qb->errornumber)
+				{
+					qb->errornumber = nqb.errornumber;
+					qb->errormsg = nqb.errormsg;
+				}
+				if (SQL_ERROR != retval)
+				{
+					qb->param_number = nqb.param_number;
+					qb->flags = nqb.flags;
+				}
+			}
+			goto cleanup;
+		}
+
 		qb->param_number++;
 		qb->proc_return = 1;
 		if (qb->stmt)
 			qb->stmt->proc_return = 1;
-		while (isspace((UCHAR) qp->statement[++qp->opos]));
+
 		if (F_OldChar(qp) != '=')
 		{
 			F_OldPrior(qp);
