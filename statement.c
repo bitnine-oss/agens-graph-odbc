@@ -2691,8 +2691,13 @@ mylog("sta_pidx=%d end_pidx=%d num_p=%d\n", sta_pidx, end_pidx, num_params);
 				if (SQL_PARAM_OUTPUT == ipdopts->parameters[i].paramType)
 					paramTypes[j++] = PG_TYPE_VOID;
 				else
-					paramTypes[j++] = sqltype_to_bind_pgtype(conn,
-															 ipdopts->parameters[i].SQLType);
+				{
+					paramTypes[j] = sqltype_to_bind_pgtype(conn,
+														   ipdopts->parameters[i].SQLType);
+					if (paramTypes[j] == 0 && ipdopts->parameters[i].decimal_digits == -3802)
+						paramTypes[j] = PG_TYPE_JSONB;
+					j++;
+				}
 			}
 			else
 			{

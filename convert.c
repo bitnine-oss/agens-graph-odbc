@@ -4156,6 +4156,8 @@ inolog("ipara=%p paramType=%d %d proc_return=%d\n", ipara, ipara ? ipara->paramT
 
 	/* XXX: should we use param_pgtype here instead? */
 	*pgType = sqltype_to_bind_pgtype(conn, param_sqltype);
+	if (*pgType == 0 && ipara->decimal_digits == -3802) 
+		*pgType = PG_TYPE_JSONB;
 
 	mylog("%s: from(fcType)=%d, to(fSqlType)=%d(%u), *pgType=%u\n", func,
 		  param_ctype, param_sqltype, param_pgtype, *pgType);
