@@ -886,6 +886,7 @@ PGAPI_GetData(HSTMT hstmt,
 	char		get_bookmark = FALSE;
 	SQLSMALLINT	target_type;
 	int		precision = -1;
+	int     scale = 0;
 #ifdef	WITH_UNIXODBC
 	SQLCHAR		dum_rgb[2] = "\0\0";
 #endif	/* WITH_UNIXODBC */
@@ -933,6 +934,7 @@ PGAPI_GetData(HSTMT hstmt,
 			target_type = binfo->returntype;
 			mylog("SQL_ARD_TYPE=%d\n", target_type);
 			precision = binfo->precision;
+			scale = binfo->scale;
 		}
 		else
 		{
@@ -1054,7 +1056,7 @@ inolog("currT=%d base=%d rowset=%d\n", stmt->currTuple, QR_get_rowstart_in_cache
 	SC_set_current_col(stmt, icol);
 
 	result = copy_and_convert_field(stmt, field_type, atttypmod, value,
-			target_type, precision, rgbValue, cbValueMax, pcbValue, pcbValue);
+			target_type, precision, scale, rgbValue, cbValueMax, pcbValue, pcbValue);
 
 	switch (result)
 	{
@@ -4215,6 +4217,7 @@ irow_insert(RETCODE ret, StatementClass *stmt, StatementClass *istmt,
 									   buf,
 									   bookmark->returntype,
 									   0,
+									   0, 
 									   bookmark->buffer + offset,
 									   bookmark->buflen,
 									   LENADDR_SHIFT(bookmark->used, offset),

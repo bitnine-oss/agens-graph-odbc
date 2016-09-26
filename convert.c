@@ -28,6 +28,8 @@
 #include <string.h>
 #include <ctype.h>
 
+#include <agtype.h>
+
 #include "multibyte.h"
 
 #include <time.h>
@@ -762,7 +764,7 @@ copy_and_convert_field_bindinfo(StatementClass *stmt, OID field_type, int atttyp
 	bic = &(opts->bindings[col]);
 	SC_set_current_col(stmt, -1);
 	return copy_and_convert_field(stmt, field_type, atttypmod, value,
-		bic->returntype, bic->precision,
+		bic->returntype, bic->precision, bic->scale,
 		(PTR) (bic->buffer + offset), bic->buflen,
 		LENADDR_SHIFT(bic->used, offset), LENADDR_SHIFT(bic->indicator, offset));
 }
@@ -862,7 +864,7 @@ int
 copy_and_convert_field(StatementClass *stmt,
 		OID field_type, int atttypmod,
 		void *valuei,
-		SQLSMALLINT fCType, int precision,
+		SQLSMALLINT fCType, int precision, int scale,
 		PTR rgbValue, SQLLEN cbValueMax,
 		SQLLEN *pcbValue, SQLLEN *pIndicator)
 {
@@ -1531,11 +1533,39 @@ inolog("2stime fr=%d\n", std_time.fr);
 
 					if (!already_copied)
 					{
+						if (fCType == SQL_C_CHAR && scale < 0)
+						{
+							void *p;
+							switch(-scale)
+							{
+							case PG_TYPE_JSONB:
+								p = ag_json_from_string_ex(ptr, len);
+								break;
+							case PG_TYPE_VERTEX:
+								p = ag_vertex_new_ex(ptr, len);
+								break;
+							case PG_TYPE_EDGE:
+								p = ag_edge_new_ex(ptr, len);
+								break;
+							case PG_TYPE_GRAPHPATH:
+								p = ag_path_new_ex(ptr, len);
+								break;
+							default:
+								return COPY_UNSUPPORTED_TYPE;
+							}
+							if (p == NULL)
+								return COPY_UNSUPPORTED_CONVERSION;
+							*(SQLPOINTER **)rgbValueBindRow = p;
+							copy_len = len;
+						}
+						else
+						{
 						/* Copy the data */
 						memcpy(rgbValueBindRow, ptr, copy_len);
 						/* Add null terminator */
 						for (i = 0; i < terminatorlen && copy_len + i < cbValueMax; i++)
 							rgbValueBindRow[copy_len + i] = '\0';
+						}
 					}
 					/* Adjust data_left for next time */
 					if (stmt->current_col >= 0)

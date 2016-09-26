@@ -220,6 +220,9 @@ fi
 AC_CHECK_LIB(pq, PQsetSingleRowMode, [],
 	      [AC_MSG_ERROR([libpq library version >= 9.2 is required])])
 
+AC_CHECK_LIB(agtype, ag_vertex_new, [],
+	      [AC_MSG_ERROR([libagtype library is required])])
+
 # 3. Header files
 
 AC_CHECK_HEADERS(locale.h sys/time.h)

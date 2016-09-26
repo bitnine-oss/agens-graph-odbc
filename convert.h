@@ -26,7 +26,7 @@ int	copy_and_convert_field_bindinfo(StatementClass *stmt, OID field_type, int at
 int	copy_and_convert_field(StatementClass *stmt,
 			OID field_type, int atttypmod,
 			void *value,
-			SQLSMALLINT fCType, int precision,
+			SQLSMALLINT fCType, int precision, int scale,
 			PTR rgbValue, SQLLEN cbValueMax, SQLLEN *pcbValue, SQLLEN *pIndicator);
 
 int		copy_statement_with_parameters(StatementClass *stmt, BOOL);

@@ -1693,7 +1693,7 @@ inolog("%s: stmt=%p ommitted++\n", func, self);
 		sprintf(buf, FORMAT_ULEN, SC_get_bookmark(self));
 		SC_set_current_col(self, -1);
 		result = copy_and_convert_field(self, 0, PG_UNSPECIFIED, buf,
-			 SQL_C_ULONG, 0, bookmark->buffer + offset, 0,
+			 SQL_C_ULONG, 0, bookmark->buffer + offset, 0, 0,
 			LENADDR_SHIFT(bookmark->used, offset),
 			LENADDR_SHIFT(bookmark->used, offset));
 	}
